@@ -1,0 +1,31 @@
+# The Deployment : Manages the Pods (containers) | tells K8s which image to pull and how many replicas to run
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-backend
+  labels:
+    app: banking-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-backend
+  template:
+    metadata:
+      labels:
+        app: banking-backend
+    spec:
+      containers:
+      - name: banking-backend
+        # Pulling the image from dockerhub
+        image: franckfozie2023/banking-backend:v1
+        ports:
+        - containerPort: 8080
+        imagePullPolicy: Always
+        resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

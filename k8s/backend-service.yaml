@@ -1,0 +1,15 @@
+#The Service: Routes traffic to the Pods (continers) | creates a stable endpoint for the backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-backend-service
+spec:
+  # Nodeport allows us to test it locally from our physical machine
+  type: NodePort
+  selector:
+    app: banking-backend
+  ports:
+  - protocol: TCP
+    port: 8080          # The port the Service exposes inside the cluster
+    targetPort: 8080    # The port the backend container listens on
+    nodePort: 30080     # A fixed port open on our local machine to access the service
