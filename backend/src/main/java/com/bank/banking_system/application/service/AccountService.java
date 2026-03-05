@@ -31,6 +31,11 @@ public class AccountService implements AccountUseCase {
         return accountRepository.findById(accountId)
         .orElseThrow(() -> new IllegalArgumentException("Account not found with ID: "+accountId)); 
     }
+
+    @Override
+    public List<Account> getAllAccounts(){
+        return accountRepository.findAll();
+    }
     
     @Override
     //Ensures that the transfer operation is atomic and consistent

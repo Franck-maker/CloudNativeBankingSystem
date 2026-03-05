@@ -7,5 +7,6 @@ public interface AccountRepositoryPort {
     Account save(Account account); 
     //Forces the application layer to handle the "Not Found" scenario safely
     Optional<Account> findById(UUID accountId);
+    List<Account> findAll();
     
 }

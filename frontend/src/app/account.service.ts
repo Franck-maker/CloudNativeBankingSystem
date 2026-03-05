@@ -22,4 +22,17 @@ export class AccountService {
     getAccount(id: string) : Observable<Account> {
         return this.http.get<Account>(`${this.apiUrl}/${id}`);
     }
+
+    transferFunds(senderId: string, receiverId: string, amount: number): Observable<void> {
+        const transferRequest = {
+            senderId,
+            receiverId,
+            amount
+        };
+        return this.http.post<void>(`${this.apiUrl}/transfer`, transferRequest, { responseType: 'text' as 'json' });
+    }
+
+    getAllAccounts(): Observable<Account[]>{
+        return this.http.get<Account[]>(this.apiUrl);
+    }
 }

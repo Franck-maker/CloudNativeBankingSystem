@@ -50,6 +50,21 @@ public class AccountRepositoryAdapter implements AccountRepositoryPort {
         ));
     }
 
+    @Override
+    public List<Account> findAll(){
+        //Fetch all entities from the database
+        List<AccountJpaEntity> entities = jpaRepository.findAll();
+
+        // Map each JPA entity to a Domain Account and collect into a list
+        return entities.stream()
+        .map(entity -> new Account(
+            entity.getAccountId(),
+            entity.getOwnerName(),
+            entity.getBalance()
+        ))
+        .toList();
+    }
+
    
     
 }
