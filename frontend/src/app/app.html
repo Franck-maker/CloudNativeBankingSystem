@@ -5,11 +5,11 @@
     <div class="absolute -top-10 -right-10 w-32 h-32 bg-bank-rose rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
     <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-bank-blue rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
 
-    @if (accountData){
+    @if (accountData$ | async; as accountData){
 
     
     <div class="relative">
-      <h1 class="text-3xl font-bold text-bank-blue mb-2">Hello, {{ accountData.owner}}</h1>
+      <h1 class="text-3xl font-bold text-bank-blue mb-2">Hello, {{accountData.owner}}</h1>
       <p class="text-sm text-gray-600 mb-6">Welcome to your modern bank.</p>
       
       <div class="bg-gradient-to-r from-bank-blue to-blue-600 rounded-xl p-6 text-white shadow-lg">

@@ -1,6 +1,7 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { AccountService, Account } from './account.service';
 import { CommonModule } from '@angular/common';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -12,26 +13,15 @@ import { CommonModule } from '@angular/common';
 export class App implements OnInit {
 
   // We'll store the fetched account here
-  accountData: Account | null = null;
+  accountData$: Observable<Account> | undefined;
 
-  private accountId = "c5ba7da0-887f-403a-af5a-97436244a3ae";
+  private accountId = "73ea66c4-03af-4fcf-8fe1-0f9b3374ea51";
  
 
   constructor(private accountService: AccountService) {}
 
   ngOnInit(): void {
     // When the component loads, fetch the data from Spring Boot
-    this.accountService.getAccount(this.accountId).subscribe({
-      next:(data) => {
-        this.accountData = data; // Store the fetched account data
-        console.log('Fetched account data:', data);
-      },
-      error: (err) => {
-        console.error('Failed to fetch account. Check CORS or UUID!', err);
-      }
-    }); 
-      
-      
-    
+    this.accountData$ = this.accountService.getAccount(this.accountId);
   }
 }
