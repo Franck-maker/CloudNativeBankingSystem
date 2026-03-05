@@ -1,0 +1,29 @@
+<div class="min-h-screen flex items-center justify-center p-6">
+  
+  <div class="relative bg-white/30 backdrop-blur-md border border-white/40 shadow-xl rounded-2xl p-8 max-w-sm w-full">
+    
+    <div class="absolute -top-10 -right-10 w-32 h-32 bg-bank-rose rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+    <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-bank-blue rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+
+    @if (accountData){
+
+    
+    <div class="relative">
+      <h1 class="text-3xl font-bold text-bank-blue mb-2">Hello, {{ accountData.owner}}</h1>
+      <p class="text-sm text-gray-600 mb-6">Welcome to your modern bank.</p>
+      
+      <div class="bg-gradient-to-r from-bank-blue to-blue-600 rounded-xl p-6 text-white shadow-lg">
+        <p class="text-sm opacity-80 mb-1">Total Balance</p>
+        <h2 class="text-4xl font-bold mb-4">${{ accountData.balance }}</h2>
+        <button class="bg-bank-rose hover:bg-rose-500 text-white font-semibold py-2 px-4 rounded-lg w-full transition duration-300">
+          Transfer Funds
+        </button>
+      </div>
+    </div>
+  }   @else {
+    <div class="relative text-center py-10">
+    <p class="text-bank-blue font-semibold animate-pulse">Connecting to Core Banking System...</p>
+    </div>
+  }
+  </div>
+</div>
