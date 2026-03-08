@@ -1,7 +1,5 @@
 # 🚀 Cloud-Native Banking Architecture
 
-
-
 A modern, 15-Factor compliant microservices application built with Clean Architecture. This project is designed to fulfill a comprehensive Cloud-Native DevSecOps grading rubric.
 
 ## 🏗️ Architecture & Tech Stack
@@ -15,10 +13,55 @@ A modern, 15-Factor compliant microservices application built with Clean Archite
 
 ## 🚦 Prerequisites
 To run this project, your local machine must have:
-* [Java 21](https://adoptium.net/)
-* [Node.js (v18+)](https://nodejs.org/) & Angular CLI (`npm i -g @angular/cli`)
 * [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 * [Minikube](https://minikube.sigs.k8s.io/docs/start/) & `kubectl`
+
+And when running it locally:
+* [Java 21](https://adoptium.net/)
+* [Node.js (v18+)](https://nodejs.org/) & Angular CLI (`npm i -g @angular/cli`)
+
+---
+
+## Kubernetes Deployment (Minikube)
+
+### 1) Start Minikube
+
+```powershell
+minikube start --driver=docker
+```
+
+### 2) Enable the Ingress Gateway
+
+```powershell
+minikube addons enable ingress
+```
+
+### 3) Apply manifests
+
+```powershell
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend.yaml
+```
+
+### 3) (Optional) Verify resources
+
+```powershell
+kubectl get pods -A
+kubectl get svc -A
+kubectl get ingress -A
+```
+
+### 4) Access the backend and the frontend services
+
+If using ingress addon:
+
+```powershell
+minikube service banking-backend-service --url
+# in another terminal
+minikube service banking-frontend-service --url
+```
+(Append "/swagger-ui/index.html" to the provided backend URL to view the API).
 
 ---
 
@@ -46,64 +89,9 @@ ng serve -o
 
 ---
 
-## Kubernetes Deployment (Minikube)
+## Troubleshooting 
 
-### 1) Start Minikube
-
-```powershell
-minikube start --driver=docker
-```
-
-### 2) Enable the Ingress Gateway
-
-```powershell
-minikube addon enable ingress
-```
-
-### 3) Apply manifests
-
-```powershell
-kubectl apply -f k8s/backend-deployment.yaml
-kubectl apply -f k8s/backend-service.yaml
-```
-
-### 3) Verify resources
-
-```powershell
-kubectl get pods -A
-kubectl get svc -A
-kubectl get ingress -A
-```
-
-### 4) Access the backend services
-
-If using ingress addon:
-
-```powershell
-minikube service banking-backend-service --url
-```
-(Append "/swagger-ui/index.html" to the provided URL to view the API).
-
----
-
-## Resource Limits Recommendation (Kubernetes)
-
-To avoid noisy-neighbor warnings, define container resources in deployments:
-
-```yaml
-resources:
-  requests:
-    cpu: "100m"
-    memory: "256Mi"
-  limits:
-    cpu: "500m"
-    memory: "512Mi"
-```
-
----
-
-
-### 2) Minikube cannot reach `registry.k8s.io`
+### Minikube cannot reach `registry.k8s.io`
 
 Symptoms: image pull/connectivity/addon failures.  
 Fix path:
@@ -111,11 +99,3 @@ Fix path:
 1. `minikube delete --all --purge`
 2. restart with `minikube start --driver=docker`
 3. configure proxy if on corporate network/VPN
-
-
-
----
-
-## License
-
-Add your project license here (e.g., MIT, Apache-2.0, proprietary).

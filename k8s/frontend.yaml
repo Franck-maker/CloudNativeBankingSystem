@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-frontend
+  labels:
+    app: banking-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-frontend
+  template:
+    metadata:
+      labels:
+        app: banking-frontend
+    spec:
+      containers:
+      - name: banking-frontend
+        # Pulling the image from dockerhub
+        image: terrebleue/banking-frontend:latest
+        ports:
+        - containerPort: 8080
+        imagePullPolicy: Always
+        resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-frontend-service
+spec:
+  # Nodeport allows us to test it locally from our physical machine
+  type: NodePort
+  selector:
+    app: banking-frontend
+  ports:
+  - protocol: TCP
+    port: 8081          # The port the Service exposes inside the cluster
+    targetPort: 8080    # The port the frontend container listens on
+    nodePort: 30081     # A fixed port open on our local machine to access the service
