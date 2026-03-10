@@ -1,0 +1,61 @@
+# The Deployment : Manages the Pods (containers) | tells K8s which image to pull and how many replicas to run
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-backend
+  labels:
+    app: banking-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: banking-backend
+  template:
+    metadata:
+      labels:
+        app: banking-backend
+    spec:
+      containers:
+      - name: banking-backend
+        # Pulling the image from dockerhub
+        image: franckfozie2023/banking-backend:v4
+        ports:
+        - containerPort: 8080
+        imagePullPolicy: Always
+        resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+        #15-Factor: Store config in the environment
+        env:
+        - name: DB_HOST
+          value: "postgres-service" # Points to our Postgres Service in K8s
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "banking_db"
+        - name: DB_USER
+          value: "dbadmin"
+        - name: DB_PASS
+          value: "securepass123"
+
+---
+#The Service: Routes traffic to the Pods (continers) | creates a stable endpoint for the backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-backend-service
+spec:
+  # Nodeport allows us to test it locally from our physical machine
+  type: NodePort
+  selector:
+    app: banking-backend
+  ports:
+  - protocol: TCP
+    port: 8080          # The port the Service exposes inside the cluster
+    targetPort: 8080    # The port the backend container listens on
+    nodePort: 30080     # A fixed port open on our local machine to access the service
+

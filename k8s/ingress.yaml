@@ -1,0 +1,34 @@
+# ==========================================
+# API Gateway (Kubernetes Ingress)
+# Simple point of entry for all client requests, routing to appropriate services.
+# ==========================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: banking-gateway
+  annotations:
+    #Optional : if we want to add rate limiting or SSL later, we do it here
+    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Disable SSL redirect
+spec:
+  # We map a custom local domain to our cluster
+  rules:
+    - host: banking.local
+      http:
+        paths:
+        # RULE 1 : Any request starting with /api goes to Spring Boot
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: banking-backend-service
+              port:
+                number: 8080
+        # RULE 2 : Everything else (like / or /dashboard) goes to Angular
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: banking-frontend-service
+              port:
+                number: 8081
