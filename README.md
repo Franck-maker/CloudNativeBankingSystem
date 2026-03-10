@@ -24,62 +24,79 @@ And when running it locally:
 
 ## Kubernetes Deployment (Minikube)
 
-### 1) Start Minikube
+### 1) Start the Minikube Cluster & Enable Gateway
 
-```powershell
+```bash
 minikube start --driver=docker
-```
-
-### 2) Enable the Ingress Gateway
-
-```powershell
 minikube addons enable ingress
 ```
 
-### 3) Apply manifests
+### 2) Configure Local DNS (Windows)
 
-```powershell
-kubectl apply -f k8s/backend-deployment.yaml
-kubectl apply -f k8s/backend-service.yaml
+```bash
+To use our custom domain, map it to your local loopback address:
+
+1. Open Notepad as Administrator.
+
+2. Edit C:\Windows\System32\drivers\etc\hosts.
+
+3. Add this line at the bottom: 127.0.0.1 banking.local
+```
+
+### 3) Deploy the Infrastructure
+
+Apply the manifests from the root directory:
+
+```bash
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/backend.yaml
 kubectl apply -f k8s/frontend.yaml
+kubectl apply -f k8s/ingress.yaml
 ```
 
-### 3) (Optional) Verify resources
+### 4) Open the Network Tunnel
+For Windows users, Minikube requires an active tunnel to bind the Ingress
+ to your physical network. Leave this running in a separate terminal:
 
-```powershell
-kubectl get pods -A
-kubectl get svc -A
-kubectl get ingress -A
+```bash
+minikube tunnel
 ```
+### 5) Access the Application
 
-### 4) Access the backend and the frontend services
+```bash
+WebPortal: Navigate to http://banking.local
 
-If using ingress addon:
+APIEndpoints: Route via http://banking.local/api/v1/...
 
-```powershell
-minikube service banking-backend-service --url
-# in another terminal
-minikube service banking-frontend-service --url
+Default Admin Credentials: 
+                Username: admin@bank.local
+                Password: admin123
 ```
-(Append "/swagger-ui/index.html" to the provided backend URL to view the API).
-
 ---
 
 ## 💻 Running the Project Locally (Dev Mode)
 
-### 1. Start the Backend (Spring Boot)
+If you need to code on the Spring Boot backend locally but want to use the Kubernetes database:
+### 1. Port-Forward the Database
+
+Open a tunnel to the K8s PostgreSQL instance. We use local port 5433 to avoid conflicts with native Windows services:
+
+```bash
+kubectl port-forward svc/postgres-service 5433:5432
+```
+### 2. Start the Backend (Spring Boot)
 The backend REST API runs on port `8080`.
+
 ```bash
 cd backend
 ./mvnw clean install -DskipTests
 ./mvnw spring-boot:run
 ```
-
 #Swagger API Docs: 
 ## To see the documentation of the endpoints and test them
 url : http://localhost:8080/swagger-ui/index.html
 
-### 2) Run frontend
+### 3. Run frontend
 
 ```bash
 cd ../frontend
@@ -99,3 +116,12 @@ Fix path:
 1. `minikube delete --all --purge`
 2. restart with `minikube start --driver=docker`
 3. configure proxy if on corporate network/VPN
+
+### Blank Page / Cannot reach **banking.local**
+
+Symptoms: The browser spins indefinitely.
+Fix path:
+
+1. Ensure your hosts file has no .txt extension.
+2. Run ipconfig /flushdns.
+3. Ensure minikube tunnel is actively running in an Administrator terminal.
