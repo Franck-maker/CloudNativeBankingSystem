@@ -92,8 +92,7 @@ cd backend
 ./mvnw clean install -DskipTests
 ./mvnw spring-boot:run
 ```
-#Swagger API Docs: 
-## To see the documentation of the endpoints and test them
+To see the documentation of the endpoints and test them
 url : http://localhost:8080/swagger-ui/index.html
 
 ### 3. Run frontend
