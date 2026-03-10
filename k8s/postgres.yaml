@@ -1,0 +1,81 @@
+# ==========================================
+# 1. PostgreSQL Persistent Volume Claim
+# 15-Factor: Stateful backing service
+# ==========================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi # Allocate 1 Gigabyte of persistent storage
+
+
+---
+# ==========================================
+# 2. PostgreSQL Deployment
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-db
+  labels:
+    app: postgres
+spec: 
+  replicas : 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        #15-Factor: Store config in the environment
+        - name: POSTGRES_DB
+          value: "banking_db"
+        - name: POSTGRES_USER
+          value: "dbadmin"
+        - name: POSTGRES_PASSWORD
+          value: "securepass123" # In production, use Kubernetes Secrets to manage sensitive data
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# ==========================================
+# 3. PostgreSQL Internal Service
+# ==========================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service # Spring Boot will connect to this service to access the database using this name
+spec:
+  selector:
+    app: postgres
+  ports:
+  - protocol: TCP
+    port: 5432          # The port the Service exposes inside the cluster
+    targetPort: 5432    # The port the container is listening on

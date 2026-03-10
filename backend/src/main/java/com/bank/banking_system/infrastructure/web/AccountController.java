@@ -3,6 +3,7 @@ package com.bank.banking_system.infrastructure.web;
 import com.bank.banking_system.application.ports.in.AccountUseCase;
 
 import org.springframework.web.bind.annotation.RequestBody;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import java.util.List;
+import org.slf4j.Logger;
 
 import com.bank.banking_system.domain.model.Account;
 
@@ -22,6 +24,7 @@ import com.bank.banking_system.domain.model.Account;
 @CrossOrigin(origins = "http://localhost:4200") // Allow requests from Angular app
 public class AccountController {
 
+    private static final Logger log = LoggerFactory.getLogger(AccountController.class); 
     private final AccountUseCase accountUseCase;
 
     public AccountController(AccountUseCase accountUseCase) {
@@ -30,7 +33,7 @@ public class AccountController {
 
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@Valid @RequestBody CreateAccountRequest request) {
-
+        log.info("Creating account for owner: {}", request.getOwner());
         // We call the use case
         Account createdAccount = accountUseCase.createAccount(request.getOwner(), request.getInitialBalance());
 
@@ -58,11 +61,13 @@ public class AccountController {
 
     @PostMapping("/transfer")
     public ResponseEntity<Void> transfer(@Valid @RequestBody TransferRequest request) {
+        log.info("Transferring {} from account {} to account {}", request.getAmount(), request.getSenderId(), request.getReceiverId());
         try {
             accountUseCase.transferMoney(request.getSenderId(), request.getReceiverId(), request.getAmount());
+            log.info("Transfer successful for Sender: {}", request.getSenderId());
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
-
+            log.warn("Error during transfer: {}", e.getMessage());
             //Catch insufficient funds or invalid acccounts
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
