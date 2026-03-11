@@ -4,6 +4,8 @@ import com.bank.banking_system.application.ports.out.*;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import com.bank.banking_system.domain.model.Account;
+import com.bank.banking_system.infrastructure.notification.NotificationGrpcClient;
+
 import java.math.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService implements AccountUseCase {
 
     private final AccountRepositoryPort accountRepository;
+    private final NotificationGrpcClient notificationClient;
 
-    public AccountService(AccountRepositoryPort accountRepositoryPort){
+    public AccountService(AccountRepositoryPort accountRepositoryPort, NotificationGrpcClient notificationClient){
         this.accountRepository = accountRepositoryPort; 
+        this.notificationClient = notificationClient;
     }
 
     @Override
@@ -57,6 +61,13 @@ public class AccountService implements AccountUseCase {
         accountRepository.save(sender); 
         accountRepository.save(receiver); 
 
-
+        // THE gRPC TRIGGER
+        String message = String.format("Successful transfer of $%.2f. Everything is working just fine😊😊", amount);
+        
+        notificationClient.sendTransferAlert(
+                senderId.toString(),
+                amount.doubleValue(),
+                message
+        );
     }
 }
