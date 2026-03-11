@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
+import { environment } from '../environments/environment';
 
 //Matches the AccountResponse DTO from the backend
 export interface Account {
@@ -13,7 +14,7 @@ export interface Account {
     providedIn: 'root'
 })
 export class AccountService {
-    private apiUrl = 'http://localhost:8080/api/v1/accounts';
+    private apiUrl = `${environment.apiUrl}/accounts`;
 
     // Injecting the HttpClient to make HTTP requests
     constructor(private http: HttpClient) {}

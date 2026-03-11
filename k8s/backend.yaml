@@ -18,7 +18,7 @@ spec:
       containers:
       - name: banking-backend
         # Pulling the image from dockerhub
-        image: franckfozie2023/banking-backend:v4
+        image: franckfozie2023/banking-backend:v5
         ports:
         - containerPort: 8080
         imagePullPolicy: Always
