@@ -1,8 +1,0 @@
-- Change from where Kubernetes pulls the frontend image 
-- Actually connect the two services together. This might be done by changing the frontend so that it uses the cluster backend's URL (instead of localhost) 
-- Containerize the database
-- Add a gateway?
-- Deploy to cloud and/or secure the cluster
-- (Optional) Terraform
-- Add a report with result screenshots and Google lab progression
-
