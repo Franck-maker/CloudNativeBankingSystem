@@ -30,7 +30,7 @@ export class AccountService {
             receiverId,
             amount
         };
-        return this.http.post<void>(`${this.apiUrl}/transfer`, transferRequest, { responseType: 'text' as 'json' });
+        return this.http.post<void>(`${this.apiUrl}/transfer`, transferRequest);
     }
 
     getAllAccounts(): Observable<Account[]>{

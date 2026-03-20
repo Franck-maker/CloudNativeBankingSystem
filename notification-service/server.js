@@ -5,7 +5,7 @@ const path = require('path');
 // ==========================================
 // 1. Load the Protobuf Contract
 // ==========================================
-const PROTO_PATH = path.join(__dirname, 'notification.proto');
+const PROTO_PATH = __dirname + '/notification.proto';
 
 // This parses the .proto file dynamically at runtime
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
@@ -61,11 +61,10 @@ function main() {
     
     server.bindAsync(PORT, grpc.ServerCredentials.createInsecure(), (error, port) => {
         if (error) {
-            console.error(`[FATAL] Failed to start server: ${error.message}`);
+            console.error(`[FATAL] Failed to bind server: ${error.message}`);
             return;
         }
         console.log(`🚀 Node.js gRPC Notification Service is listening on ${PORT}`);
-        // Note: server.start() is handled automatically by bindAsync in modern @grpc/grpc-js
     });
 }
 

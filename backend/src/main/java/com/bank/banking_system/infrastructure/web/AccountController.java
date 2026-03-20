@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +20,6 @@ import com.bank.banking_system.domain.model.Account;
 
 @RestController
 @RequestMapping("api/v1/accounts")
-@CrossOrigin(origins = "http://localhost:4200") // Allow requests from Angular app
 public class AccountController {
 
     private static final Logger log = LoggerFactory.getLogger(AccountController.class); 
@@ -65,7 +63,15 @@ public class AccountController {
         try {
             accountUseCase.transferMoney(request.getSenderId(), request.getReceiverId(), request.getAmount());
             log.info("Transfer successful for Sender: {}", request.getSenderId());
-            return ResponseEntity.ok().build();
+
+            // Fire gRPC notification AFTER the transaction has committed
+            try {
+                accountUseCase.notifyTransfer(request.getSenderId(), request.getAmount());
+            } catch (Exception e) {
+                log.warn("gRPC notification failed (transfer still succeeded): {}", e.getMessage());
+            }
+
+            return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             log.warn("Error during transfer: {}", e.getMessage());
             //Catch insufficient funds or invalid acccounts

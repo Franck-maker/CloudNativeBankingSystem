@@ -17,6 +17,8 @@ public interface AccountUseCase {
     Account getAccount(UUID accountId); 
     //Performs a transfer between two accounts, ensuring atomicity and consistency
     void transferMoney(UUID senderId, UUID receiver, BigDecimal amount); 
+    // Sends a gRPC notification after a successful transfer
+    void notifyTransfer(UUID senderId, BigDecimal amount);
     // Returns a list of all accounts in the system
     List<Account> getAllAccounts();
 }

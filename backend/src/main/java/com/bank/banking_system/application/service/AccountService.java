@@ -60,9 +60,12 @@ public class AccountService implements AccountUseCase {
         //Save the updated accounts
         accountRepository.save(sender); 
         accountRepository.save(receiver); 
+    }
 
-        // THE gRPC TRIGGER
-        String message = String.format("Successful transfer of $%.2f. Everything is working just fine😊😊", amount);
+    @Override
+    public void notifyTransfer(UUID senderId, BigDecimal amount) {
+        // THE gRPC TRIGGER - called AFTER transaction commits so it doesn't block the DB transaction
+        String message = String.format("Successful transfer of $%.2f. Everything is working just fine", amount);
         
         notificationClient.sendTransferAlert(
                 senderId.toString(),
