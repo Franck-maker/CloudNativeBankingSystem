@@ -27,9 +27,9 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults()) // Uses the corsConfigurationSource bean below
             .authorizeHttpRequests(auth -> auth
                 // RBAC RULE 1 : Only ADMINs can get the full list of accounts
-                .requestMatchers(HttpMethod.GET, "/api/v1/accounts").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/v1/accounts").hasRole("ADMIN")
                 // RBAC RULE 2 : USERs and ADMINs can do everything else (create accounts, get account by id, transfer money)
-                .requestMatchers("/api/v1/accounts/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/v1/accounts/**").hasAnyRole("USER", "ADMIN")
 
                 //Allow Swagger UI to bypass secrurity so we can test our API easily
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()

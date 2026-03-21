@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import com.bank.banking_system.domain.model.Account;
 
 @RestController
-@RequestMapping("api/v1/accounts")
+@RequestMapping("/v1/accounts")
 public class AccountController {
 
     private static final Logger log = LoggerFactory.getLogger(AccountController.class); 
