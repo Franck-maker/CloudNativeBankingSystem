@@ -1,67 +1,133 @@
-# The Deployment : Manages the Pods (containers) | tells K8s which image to pull and how many replicas to run
+# ==========================================
+# Backend Deployment - Secured
+# ==========================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: banking-backend
+  namespace: banking
   labels:
     app: banking-backend
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: backend
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: banking-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     metadata:
       labels:
         app: banking-backend
     spec:
+      serviceAccountName: banking-backend-sa
+      automountServiceAccountToken: false
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: banking-backend
-        # Pulling the image from dockerhub
         image: franckfozie2023/banking-backend:v5
         ports:
         - containerPort: 8080
+          protocol: TCP
         imagePullPolicy: Always
+        # Container-level security: drop all capabilities, read-only root FS
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
         resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
-        #15-Factor: Store config in the environment
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        # Probes: use TCP socket (avoids context-path and auth issues)
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 3
+          failureThreshold: 5
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 5
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+        # Environment variables: non-sensitive values inline
         env:
         - name: SERVER_PORT
           value: "8080"
         - name: DB_HOST
-          value: "postgres-service" # Points to our Postgres Service in K8s
+          value: "postgres-service"
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
           value: "banking_db"
-        - name: DB_USER
-          value: "dbadmin"
-        - name: DB_PASS
-          value: "securepass123"
         - name: GRPC_NOTIFICATION_HOST
           value: "notification-service"
         - name: GRPC_NOTIFICATION_PORT
           value: "50051"
+        # Sensitive values from Kubernetes Secret
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: backend-credentials
+              key: DB_USER
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: backend-credentials
+              key: DB_PASS
+        # Writable tmp directory (needed since rootFS is read-only)
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
 
 ---
-#The Service: Routes traffic to the Pods (continers) | creates a stable endpoint for the backend
+# ==========================================
+# Backend Service
+# ==========================================
 apiVersion: v1
 kind: Service
 metadata:
   name: banking-backend-service
+  namespace: banking
 spec:
-  # Nodeport allows us to test it locally from our physical machine
-  type: NodePort
+  # ClusterIP for internal traffic (Ingress handles external access)
+  type: ClusterIP
   selector:
     app: banking-backend
   ports:
   - protocol: TCP
-    port: 8080          # The port the Service exposes inside the cluster
-    targetPort: 8080    # The port the backend container listens on
-    nodePort: 30080     # A fixed port open on our local machine to access the service
+    port: 8080
+    targetPort: 8080
 

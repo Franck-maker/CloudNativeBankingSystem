@@ -1,0 +1,42 @@
+# ==========================================
+# Custom Security Headers ConfigMap
+# These headers are added to every response by the NGINX Ingress controller
+# Apply to the ingress-nginx namespace (where the controller lives)
+# ==========================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  X-Frame-Options: "DENY"
+  X-Content-Type-Options: "nosniff"
+  X-XSS-Protection: "1; mode=block"
+  Referrer-Policy: "strict-origin-when-cross-origin"
+  Permissions-Policy: "camera=(), microphone=(), geolocation=()"
+  # CSP is intentionally not set here — it must be tailored per-app and set at the application level
+  Strict-Transport-Security: "max-age=31536000; includeSubDomains; preload"
+
+---
+# ==========================================
+# Patch the NGINX Ingress controller ConfigMap
+# to reference our custom headers and enable HSTS
+# ==========================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+data:
+  # Reference our custom-headers ConfigMap
+  add-headers: "ingress-nginx/custom-headers"
+  # Enable HSTS at controller level
+  hsts: "true"
+  hsts-include-subdomains: "true"
+  hsts-max-age: "31536000"
+  hsts-preload: "true"
+  # Hide server version
+  server-tokens: "false"
+  # SSL settings
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"

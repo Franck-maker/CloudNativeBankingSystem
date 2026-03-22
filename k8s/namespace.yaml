@@ -1,0 +1,51 @@
+# ==========================================
+# Namespace: Isolate all banking resources
+# ==========================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: banking
+  labels:
+    app.kubernetes.io/part-of: banking-system
+    # Enforce Pod Security Standards at namespace level
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+---
+# ==========================================
+# ResourceQuota: Limit total resource consumption
+# ==========================================
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: banking-quota
+  namespace: banking
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "5"
+
+---
+# ==========================================
+# LimitRange: Default limits for containers
+# ==========================================
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: banking-limits
+  namespace: banking
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container

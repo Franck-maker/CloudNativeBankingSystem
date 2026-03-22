@@ -1,17 +1,42 @@
 # ==========================================
-# API Gateway (Kubernetes Ingress)
-# Simple point of entry for all client requests, routing to appropriate services.
+# API Gateway (Kubernetes Ingress) - Secured
+# TLS termination, security headers, rate limiting
 # ==========================================
 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: banking-gateway
+  namespace: banking
   annotations:
-    #Optional : if we want to add rate limiting or SSL later, we do it here
-    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Disable SSL redirect
+    # ---- TLS / HTTPS ----
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+
+    # ---- Rate Limiting (DDoS mitigation) ----
+    nginx.ingress.kubernetes.io/limit-rps: "20"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    nginx.ingress.kubernetes.io/limit-rpm: "300"
+
+    # ---- Security Headers (applied via controller ConfigMap) ----
+    # See security-headers.yaml for X-Frame-Options, CSP, HSTS, etc.
+
+    # ---- Request size limit (prevent large payload attacks) ----
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+    # ---- Timeouts ----
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+
 spec:
-  # We map a custom local domain to our cluster
+  ingressClassName: nginx
+  # ---- TLS Configuration ----
+  tls:
+  - hosts:
+    - banking.local
+    secretName: banking-tls-secret
+  # ---- Routing Rules ----
   rules:
     - host: banking.local
       http:

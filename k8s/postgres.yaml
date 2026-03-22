@@ -6,41 +6,63 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
+  namespace: banking
   labels:
     app: postgres
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: database
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi # Allocate 1 Gigabyte of persistent storage
-
+      storage: 1Gi
 
 ---
 # ==========================================
-# 2. PostgreSQL Deployment
+# 2. PostgreSQL Deployment - Secured
 # ==========================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres-db
+  namespace: banking
   labels:
     app: postgres
-spec: 
-  replicas : 1
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: database
+spec:
+  replicas: 1
   selector:
     matchLabels:
       app: postgres
+  strategy:
+    type: Recreate # Postgres requires Recreate strategy with PVC
   template:
     metadata:
       labels:
         app: postgres
     spec:
+      serviceAccountName: postgres-sa
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999     # postgres user in the official image
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:15-alpine
         ports:
         - containerPort: 5432
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         resources:
           requests:
             memory: "256Mi"
@@ -48,14 +70,45 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+        # Sensitive config from Kubernetes Secrets
         env:
-        #15-Factor: Store config in the environment
         - name: POSTGRES_DB
-          value: "banking_db"
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_DB
         - name: POSTGRES_USER
-          value: "dbadmin"
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
-          value: "securepass123" # In production, use Kubernetes Secrets to manage sensitive data
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
@@ -71,11 +124,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-service # Spring Boot will connect to this service to access the database using this name
+  name: postgres-service
+  namespace: banking
 spec:
   selector:
     app: postgres
   ports:
   - protocol: TCP
-    port: 5432          # The port the Service exposes inside the cluster
-    targetPort: 5432    # The port the container is listening on
+    port: 5432
+    targetPort: 5432

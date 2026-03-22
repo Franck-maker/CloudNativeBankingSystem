@@ -20,8 +20,8 @@ A 15-Factor compliant microservices banking application built with **Hexagonal A
         │                 │  ┌──────────────────┐  ┌──────────────────┐                 │
         │                 │  │  Backend Service  │  │ Frontend Service │                 │
         │                 │  │  (Spring Boot)    │  │  (Angular/nginx) │                 │
-        │                 │  │  Port: 8080       │  │  Port: 8080      │                 │
-        │                 │  │  NodePort: 30080  │  │  NodePort: 30081 │                 │
+        │                 │  │  Port: 8080       │  │  Port: 8081      │                 │
+        │                 │  │  ClusterIP        │  │  ClusterIP       │                 │
         │                 │  └────────┬─────────┘  └──────────────────┘                 │
         │                 │           │         │                                       │
         │                 │    JPA    │         │  gRPC (:50051)                        │
@@ -156,34 +156,60 @@ docker build -t franckfozie2023/notification-service:v1 .
 
 > **Tip:** If you also want images on Docker Hub for reuse, run `docker push <image>` after each build.
 
-### 4. Deploy to the Cluster
+### 4. Deploy to the Cluster (Secure Deployment)
 
-Apply the manifests in order (database first, then services, then gateway):
+The project includes an automated deployment script that applies all manifests in the correct order with full security hardening.
+
+**Windows PowerShell:**
+
+```powershell
+cd k8s
+.\deploy.ps1 -GenerateTLS
+```
+
+**Linux / macOS:**
 
 ```bash
-cd ..
-kubectl apply -f k8s/postgres.yaml
-kubectl apply -f k8s/notification-service.yaml
-kubectl apply -f k8s/backend.yaml
-kubectl apply -f k8s/frontend.yaml
-kubectl apply -f k8s/ingress.yaml
+cd k8s
+chmod +x deploy.sh
+./deploy.sh --generate-tls
 ```
+
+The script executes 7 steps automatically:
+
+| Step | What it does |
+|------|--------------|
+| 1 | Creates `banking` namespace with Pod Security Standards + ResourceQuota |
+| 2 | Creates Kubernetes Secrets + TLS certificate (with `-GenerateTLS`) |
+| 3 | Applies RBAC: ServiceAccounts, Roles, RoleBindings |
+| 4 | Applies Network Policies (zero-trust: deny-all + allow-list) |
+| 5 | Deploys PostgreSQL and waits for it to be ready |
+| 6 | Deploys backend, frontend, notification-service + PodDisruptionBudgets |
+| 7 | Configures Ingress gateway with security headers |
+
+> **If the cluster already has the TLS secret**, you can skip cert generation with just `.\deploy.ps1` (or `./deploy.sh`).
+>
+> **To tear everything down:** `.\deploy.ps1 -Delete` (or `./deploy.sh --delete`)
 
 Wait for all pods to be ready:
 
 ```bash
-kubectl get pods -w
+kubectl get pods -n banking -w
 ```
 
 Expected output (all `1/1 Running`):
 
 ```
-NAME                                    READY   STATUS    AGE
-postgres-db-xxx                         1/1     Running   ...
-notification-service-xxx                1/1     Running   ...
-banking-backend-xxx                     1/1     Running   ...
-banking-frontend-xxx                    1/1     Running   ...
+NAME                                    READY   STATUS    RESTARTS   AGE
+postgres-db-xxx-yyy                     1/1     Running   0          ...
+notification-service-xxx-yyy            1/1     Running   0          ...
+banking-backend-xxx-yyy                 1/1     Running   0          ...
+banking-backend-xxx-zzz                 1/1     Running   0          ...
+banking-frontend-xxx-yyy                1/1     Running   0          ...
+banking-frontend-xxx-zzz                1/1     Running   0          ...
 ```
+
+> Note: Backend and Frontend each have **2 replicas** for high availability.
 
 ### 5. Open the Network Tunnel
 
@@ -197,11 +223,13 @@ minikube tunnel
 
 ### 6. Access the Application
 
-| What                 | URL                                          |
-|----------------------|----------------------------------------------|
-| **Web Portal**       | http://banking.local                         |
-| **REST API**         | http://banking.local/api/v1/accounts         |
-| **Swagger UI**       | http://banking.local/api/swagger-ui/index.html |
+| What                 | URL                                               |
+|----------------------|---------------------------------------------------|
+| **Web Portal**       | https://banking.local                              |
+| **REST API**         | https://banking.local/api/v1/accounts              |
+| **Swagger UI**       | https://banking.local/api/swagger-ui/index.html    |
+
+> The application uses a self-signed TLS certificate. Your browser will display a certificate warning — this is expected for local development. Click **Advanced → Proceed** to continue.
 
 **Default Credentials (seeded on first startup):**
 
@@ -285,19 +313,19 @@ Open http://localhost:4200 in your browser.
 
 ```bash
 # All pods
-kubectl get pods
+kubectl get pods -n banking
 
 # Backend logs
-kubectl logs -l app=banking-backend -f
+kubectl logs -l app=banking-backend -n banking -f
 
 # Frontend (nginx) logs
-kubectl logs -l app=banking-frontend -f
+kubectl logs -l app=banking-frontend -n banking -f
 
 # Notification service logs (gRPC)
-kubectl logs -l app=notification-service -f
+kubectl logs -l app=notification-service -n banking -f
 
 # PostgreSQL logs
-kubectl logs -l app=postgres -f
+kubectl logs -l app=postgres -n banking -f
 ```
 
 ### Seeing gRPC Notifications in Action
@@ -305,7 +333,7 @@ kubectl logs -l app=postgres -f
 After performing a **transfer** in the web portal, check the notification service logs to see the gRPC response:
 
 ```bash
-kubectl logs -l app=notification-service -f
+kubectl logs -l app=notification-service -n banking -f
 ```
 
 You will see output like:
@@ -325,7 +353,7 @@ In **local development**, the same output appears directly in the terminal where
 Check the backend logs for the notification round-trip:
 
 ```bash
-kubectl logs -l app=banking-backend -f
+kubectl logs -l app=banking-backend -n banking -f
 ```
 
 ---
@@ -348,8 +376,8 @@ docker build -t franckfozie2023/banking-backend:v5 .
 ### 2. Restart the Deployment
 
 ```bash
-kubectl rollout restart deployment banking-backend
-kubectl rollout status deployment banking-backend
+kubectl rollout restart deployment banking-backend -n banking
+kubectl rollout status deployment banking-backend -n banking
 ```
 
 Repeat for `banking-frontend` or `notification-service` as needed.
@@ -362,24 +390,30 @@ Repeat for `banking-frontend` or `notification-service` as needed.
 # Cluster status
 minikube status
 
-# List all resources
-kubectl get all
+# List all resources in the banking namespace
+kubectl get all -n banking
 
 # Describe a pod (events, env vars, errors)
-kubectl describe pod <pod-name>
+kubectl describe pod <pod-name> -n banking
 
 # Exec into a running container
-kubectl exec -it <pod-name> -- /bin/sh
+kubectl exec -it <pod-name> -n banking -- /bin/sh
 
 # Port-forward a service for local access
-kubectl port-forward svc/banking-backend-service 8082:8080
+kubectl port-forward svc/banking-backend-service 8082:8080 -n banking
 
 # Delete and re-apply a specific manifest
 kubectl delete -f k8s/backend.yaml
 kubectl apply -f k8s/backend.yaml
 
 # View Ingress routing rules
-kubectl describe ingress banking-gateway
+kubectl describe ingress banking-gateway -n banking
+
+# Check security: network policies, RBAC, pod security
+kubectl get networkpolicies -n banking
+kubectl get serviceaccounts -n banking
+kubectl get roles,rolebindings -n banking
+kubectl get resourcequota -n banking
 ```
 
 ---
@@ -417,11 +451,21 @@ banking-system/
 │   └── notification.proto          # Source-of-truth proto definition
 │
 ├── k8s/                            # Kubernetes manifests
-│   ├── postgres.yaml               # PVC + Deployment + ClusterIP Service
-│   ├── backend.yaml                # Deployment + NodePort Service (:30080)
-│   ├── frontend.yaml               # Deployment + NodePort Service (:30081)
-│   ├── notification-service.yaml   # Deployment + ClusterIP Service (:50051)
-│   └── ingress.yaml                # Ingress Gateway (banking.local)
+│   ├── namespace.yaml              # Namespace, Pod Security Standards, ResourceQuota, LimitRange
+│   ├── secrets.yaml                # Kubernetes Secrets (DB credentials, backend credentials)
+│   ├── rbac.yaml                   # ServiceAccounts, Roles, RoleBindings (least privilege)
+│   ├── network-policies.yaml       # Zero-trust: deny-all + explicit allow-list
+│   ├── postgres.yaml               # PVC + Deployment + ClusterIP Service (hardened)
+│   ├── backend.yaml                # Deployment + ClusterIP Service (2 replicas, hardened)
+│   ├── frontend.yaml               # Deployment + ClusterIP Service (2 replicas, hardened)
+│   ├── notification-service.yaml   # Deployment + ClusterIP Service (hardened)
+│   ├── ingress.yaml                # Ingress Gateway (TLS, rate limiting, security headers)
+│   ├── security-headers.yaml       # NGINX security headers ConfigMap
+│   ├── pod-disruption-budgets.yaml # PDBs for all services
+│   ├── tls-secret.yaml             # TLS secret template
+│   ├── deploy.ps1                  # Windows PowerShell deployment script
+│   ├── deploy.sh                   # Linux/macOS deployment script
+│   └── SECURITY.md                 # Full security documentation
 │
 └── README.md
 ```
@@ -438,10 +482,33 @@ banking-system/
 | `DB_HOST`                 | `localhost`     | `postgres-service`     | PostgreSQL host                   |
 | `DB_PORT`                 | `5432`          | `5432`                 | PostgreSQL port                   |
 | `DB_NAME`                 | `banking_db`    | `banking_db`           | Database name                     |
-| `DB_USER`                 | `dbadmin`       | `dbadmin`              | Database username                 |
-| `DB_PASS`                 | `securepass123` | `securepass123`        | Database password                 |
+| `DB_USER`                 | `dbadmin`       | *(from Secret)*        | Database username                 |
+| `DB_PASS`                 | `securepass123` | *(from Secret)*        | Database password                 |
 | `GRPC_NOTIFICATION_HOST`  | `localhost`     | `notification-service` | gRPC notification service host    |
 | `GRPC_NOTIFICATION_PORT`  | `50051`         | `50051`                | gRPC notification service port    |
+
+---
+
+## Kubernetes Cluster Security
+
+The cluster is fully secured following Kubernetes security best practices. Here is a summary of the controls applied:
+
+| Security Layer | Implementation |
+|---|---|
+| **Namespace Isolation** | Dedicated `banking` namespace with Pod Security Standards (`restricted`) |
+| **Secrets Management** | All credentials stored in Kubernetes Secrets (no hardcoded passwords) |
+| **Network Policies** | Zero-trust model: default deny-all + explicit allow-list per service |
+| **RBAC** | Dedicated ServiceAccount per microservice, least-privilege Roles |
+| **Pod Security** | `runAsNonRoot`, `readOnlyRootFilesystem`, `drop: [ALL]` capabilities, seccomp |
+| **TLS** | TLS termination at Ingress with HTTPS |
+| **Security Headers** | HSTS, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy |
+| **Rate Limiting** | 20 req/s, 10 concurrent connections, 300 req/min at Ingress level |
+| **Resource Quotas** | CPU/memory limits enforced at namespace and container level |
+| **Availability** | PodDisruptionBudgets, RollingUpdate (zero downtime), multiple replicas |
+| **Probes** | Liveness, Readiness, and Startup probes on all pods |
+| **Service Exposure** | ClusterIP only (no NodePort) — all external traffic goes through Ingress |
+
+> **For the full security documentation, architecture diagram, and verification commands, see [`k8s/SECURITY.md`](k8s/SECURITY.md).**
 
 ---
 
@@ -462,11 +529,73 @@ The image isn't found on Docker Hub or locally.
 ### Pods in `CrashLoopBackOff`
 
 ```bash
-kubectl logs <pod-name>
-kubectl describe pod <pod-name>
+kubectl logs <pod-name> -n banking
+kubectl describe pod <pod-name> -n banking
 ```
 
-Common causes: database not ready yet (backend starts before postgres), wrong env vars, port conflicts.
+Common causes:
+- **Database not ready yet** — The deploy script handles this by waiting for PostgreSQL before deploying the backend. If deploying manually, apply `postgres.yaml` first and wait.
+- **Wrong environment variables** — Check that `secrets.yaml` is applied and the base64-encoded values are correct.
+- **Read-only filesystem errors** — All pods use `readOnlyRootFilesystem: true`. If a container needs to write temporary files, an `emptyDir` volume must be mounted at the right path (already configured for all services).
+
+### Backend probes failing (Startup/Liveness/Readiness)
+
+The backend uses **TCP socket probes** on port 8080 (not HTTP). If the backend pod restarts repeatedly:
+
+1. Check logs: `kubectl logs -l app=banking-backend -n banking`
+2. The startup probe allows up to **150 seconds** (30 failures × 5s period) for Spring Boot to initialize.
+3. If the backend cannot connect to PostgreSQL, it will fail. Verify PostgreSQL is running:
+   ```bash
+   kubectl get pods -n banking -l app=postgres
+   ```
+
+### PostgreSQL probes failing
+
+PostgreSQL uses `pg_isready` exec probes. The command is wrapped in `sh -c` to properly expand environment variables from Secrets:
+```yaml
+command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+```
+If you see probe failures, ensure `secrets.yaml` is applied before `postgres.yaml`.
+
+### ERR_CERT_AUTHORITY_INVALID (Browser TLS warning)
+
+This is **expected** when using a self-signed TLS certificate for local development. Solutions:
+- Click **Advanced → Proceed to banking.local (unsafe)** in Chrome/Edge.
+- Or type `thisisunsafe` anywhere on the Chrome warning page.
+- For Firefox: click **Advanced → Accept the Risk and Continue**.
+
+### Ingress not routing traffic / 404 errors
+
+1. Ensure the Ingress is in the `banking` namespace:
+   ```bash
+   kubectl get ingress -n banking
+   ```
+2. Check there is no leftover Ingress in the `default` namespace that conflicts:
+   ```bash
+   kubectl get ingress --all-namespaces
+   ```
+   If a duplicate exists in `default`, delete it:
+   ```bash
+   kubectl delete ingress banking-gateway -n default
+   ```
+3. Verify `minikube tunnel` is running.
+4. Verify your hosts file: `127.0.0.1 banking.local`
+
+### Security headers not applying / stale headers
+
+If you modify `security-headers.yaml`, the NGINX Ingress controller needs to be restarted to pick up the new ConfigMap values:
+```bash
+kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx
+```
+Also clear your browser cache or use an incognito window (browsers cache security headers aggressively).
+
+### Network Policy blocking legitimate traffic
+
+If a service cannot reach another service after deploying network policies:
+
+1. Check the policies: `kubectl get networkpolicies -n banking`
+2. Describe a specific policy: `kubectl describe networkpolicy <name> -n banking`
+3. Ensure pod labels match the network policy selectors. The policies use `app: banking-backend`, `app: banking-frontend`, `app: postgres`, `app: notification-service`.
 
 ### Minikube cannot reach `registry.k8s.io`
 
@@ -479,7 +608,7 @@ Common causes: database not ready yet (backend starts before postgres), wrong en
 1. Verify your hosts file has `127.0.0.1 banking.local` (no `.txt` extension on the file).
 2. Run `ipconfig /flushdns`.
 3. Ensure `minikube tunnel` is running in a separate **Administrator** terminal.
-4. Check the Ingress is created: `kubectl describe ingress banking-gateway`.
+4. Check the Ingress is created: `kubectl describe ingress banking-gateway -n banking`.
 
 ### Backend build fails in Docker (`protoc-gen-grpc-java not executable`)
 

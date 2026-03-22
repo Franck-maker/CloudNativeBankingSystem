@@ -1,12 +1,15 @@
 # ==========================================
-# Notification Service Deployment
+# Notification Service Deployment - Secured
 # ==========================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-service
+  namespace: banking
   labels:
     app: notification-service
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: notification
 spec:
   replicas: 1
   selector:
@@ -17,12 +20,28 @@ spec:
       labels:
         app: notification-service
     spec:
+      serviceAccountName: notification-service-sa
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: notification-service
         image: franckfozie2023/notification-service:v1
         ports:
         - containerPort: 50051
+          protocol: TCP
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
         resources:
           requests:
             cpu: "50m"
@@ -30,15 +49,37 @@ spec:
           limits:
             cpu: "200m"
             memory: "256Mi"
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 50Mi
 
 ---
 # ==========================================
-# Notification Service (Internal ClusterIP)
+# Notification Service (Internal ClusterIP) - Secured
 # ==========================================
 apiVersion: v1
 kind: Service
 metadata:
   name: notification-service
+  namespace: banking
 spec:
   selector:
     app: notification-service

@@ -1,0 +1,109 @@
+# ==========================================
+# RBAC: Role-Based Access Control
+# Principle of least privilege for service accounts
+# ==========================================
+
+# --- Service Accounts ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: banking-backend-sa
+  namespace: banking
+  labels:
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: backend
+automountServiceAccountToken: false # Don't mount token unless needed
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: banking-frontend-sa
+  namespace: banking
+  labels:
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: frontend
+automountServiceAccountToken: false
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: notification-service-sa
+  namespace: banking
+  labels:
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: notification
+automountServiceAccountToken: false
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-sa
+  namespace: banking
+  labels:
+    app.kubernetes.io/part-of: banking-system
+    app.kubernetes.io/component: database
+automountServiceAccountToken: false
+
+---
+# --- Roles ---
+# Backend role: can read configmaps and secrets it needs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backend-role
+  namespace: banking
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["backend-credentials"]
+  verbs: ["get"]
+
+---
+# RoleBinding: bind backend SA to its role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backend-role-binding
+  namespace: banking
+subjects:
+- kind: ServiceAccount
+  name: banking-backend-sa
+  namespace: banking
+roleRef:
+  kind: Role
+  name: backend-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Postgres role: only read its own secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: postgres-role
+  namespace: banking
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["postgres-credentials"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: postgres-role-binding
+  namespace: banking
+subjects:
+- kind: ServiceAccount
+  name: postgres-sa
+  namespace: banking
+roleRef:
+  kind: Role
+  name: postgres-role
+  apiGroup: rbac.authorization.k8s.io
